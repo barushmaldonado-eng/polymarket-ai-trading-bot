@@ -8,24 +8,45 @@ from .health import assert_trading_allowed
 from .live import LiveTrader
 
 def main():
-    config=Config(); config.validate(); risk=RiskManager(config); storage=Storage(); scanner=PolymarketScanner(config.min_liquidity); strategy=ArbitrageStrategy(config.arbitrage_min_edge,config.arbitrage_max_bundle)
+    config=Config(); config.validate()
+    risk=RiskManager(config); storage=Storage()
+    scanner=PolymarketScanner(config.min_liquidity)
+    strategy=ArbitrageStrategy(config.arbitrage_min_edge,config.arbitrage_max_bundle)
     live=None
     if config.mode=='live':
-        assert_trading_allowed(); live=LiveTrader(config,risk,storage); print('LIVE MODE: strict limits active')
-    else: print('PAPER MODE: no live orders will be submitted')
-    while True:
-        try:
-            opportunities=scanner.scan(500); ranked=[]
-            for market in opportunities:
-                signal=strategy.evaluate(market)
-                if signal: ranked.append(signal); storage.log_opportunity(signal)
-            ranked.sort(key=lambda x:x['gross_edge'],reverse=True)
-            if ranked:
-                print('BEST SIGNAL',ranked[0])
-                if live: live.maybe_execute(ranked[0])
-            else: print('No qualifying signal.')
-        except Exception as exc:
-            storage.log_error(str(exc)); print('Loop error:',exc)
-            if live: risk.state.halted=True
-        time.sleep(config.scan_interval)
+        assert_trading_allowed()
+        live=LiveTrader(config,risk,storage)
+        print('LIVE MODE: strict limits active')
+    else:
+        print('PAPER MODE: no live orders will be submitted')
+    try:
+        while True:
+            try:
+                opportunities=scanner.scan(500)
+                ranked=[]
+                for market in opportunities:
+                    signal=strategy.evaluate(market)
+                    if signal:
+                        ranked.append(signal)
+                        storage.log_opportunity(signal)
+                ranked.sort(key=lambda x:x['gross_edge'],reverse=True)
+                if ranked:
+                    print('BEST SIGNAL',ranked[0])
+                    if live:
+                        live.maybe_execute(ranked[0])
+                else:
+                    print('No qualifying signal.')
+            except Exception as exc:
+                storage.log_error(str(exc))
+                print('Loop error:',exc)
+                if live:
+                    risk.state.halted=True
+            if risk.state.halted and live:
+                print('KILL SWITCH ACTIVE; stopping live loop')
+                break
+            time.sleep(config.scan_interval)
+    finally:
+        if live:
+            live.close()
+
 if __name__=='__main__': main()
