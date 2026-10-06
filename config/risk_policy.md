@@ -2,11 +2,14 @@
 
 Starting bankroll: $50.
 
-- Maximum single position: $5
-- Maximum simultaneous exposure: $10
-- Maximum daily realized loss: $2.50
+- Max single leg: $2.50
+- Max bundle exposure: $5
+- Max daily loss: $2.50
+- Max live trades/day: 5
+- FOK execution only
+- Explicit max-price bounds on both buys
 - No martingale
 - No automatic averaging down
-- Kill switch after daily loss limit
-- Live trading disabled until the Polymarket adapter is validated
-- Secrets only through runtime environment
+- Fail closed on critical errors
+- Live mode requires explicit ENABLE_LIVE_TRADING=1
+- Never commit wallet secrets
